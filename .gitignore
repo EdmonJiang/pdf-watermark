@@ -1,0 +1,27 @@
+# build artifacts
+*.exe
+*.o
+*.obj
+*.a
+*.lib
+*.dll
+build/
+bin/
+obj/
+
+# third-party sources fetched separately (see README)
+mupdf/
+sumatrapdf/
+mupdf_build/
+mupdf_fonts/
+
+# test pdfs
+*.pdf
+!doc/*.pdf
+
+# editors / os
+.vscode/
+.idea/
+*.swp
+Thumbs.db
+desktop.ini
