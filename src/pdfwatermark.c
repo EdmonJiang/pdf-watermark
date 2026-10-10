@@ -23,6 +23,8 @@
 #include "pdf.h"
 #include "mupdf_render.h"
 
+#define PW_VERSION L"1.0.0"
+
 /* ------------------------------------------------------------------ */
 /* 控件 ID                                                             */
 /* ------------------------------------------------------------------ */
@@ -611,6 +613,10 @@ static int runCli(int argc, wchar_t **argv)
     for (i = 1; i < argc; i++) {
         wchar_t *a = argv[i];
         if (!wcscmp(a, L"grid") || !wcscmp(a, L"insert")) { mode = a; continue; }
+        if (!wcscmp(a, L"-V") || !wcscmp(a, L"--version")) {
+            cliPrint(L"pdfwatermark " PW_VERSION L"\n");
+            return 0;
+        }
         if (!wcscmp(a, L"-o") || !wcscmp(a, L"--opacity")) {
             if (++i < argc) p.opacity = _wtof(argv[i]);
             continue;
@@ -679,7 +685,8 @@ static int runCli(int argc, wchar_t **argv)
             L"  -ts, --text-size <px>      字号像素 (默认 50, 最大 200)\n"
             L"  -h, --horizontal-boxes <n> 水平重复数 (默认 3)\n"
             L"  -v, --vertical-boxes <n>   垂直重复数 (默认 2)\n"
-            L"  -x, --x <0..1> / -y, --y <0..1>  insert 模式位置\n");
+            L"  -x, --x <0..1> / -y, --y <0..1>  insert 模式位置\n"
+            L"  -V, --version              显示版本\n");
         return 2;
     }
     if (!outfile) {
@@ -748,7 +755,11 @@ int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE hPrev,
         int argc = 0;
         wchar_t **argv = CommandLineToArgvW(GetCommandLineW(), &argc);
         if (argc > 1 && argv) {
-            if (_wcsicmp(argv[1], L"grid") == 0 || _wcsicmp(argv[1], L"insert") == 0) {
+            /* CLI 模式: 第一个参数为 grid/insert, 或任何 - 开头的选项
+             * (如 -V/--version). 否则视为"打开文件", 进 GUI. */
+            if (_wcsicmp(argv[1], L"grid") == 0 ||
+                _wcsicmp(argv[1], L"insert") == 0 ||
+                argv[1][0] == L'-') {
                 int r = runCli(argc, argv);
                 LocalFree(argv);
                 return r;
@@ -807,7 +818,7 @@ int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE hPrev,
     RegisterClassExW(&wc);
 
     g_hWnd = CreateWindowW(L"PdfWatermarkApp",
-        L"PDF \x6C34\x5370\x5DE5\x5177",
+        L"PDF \x6C34\x5370\x5DE5\x5177 v" PW_VERSION,
         WS_OVERLAPPEDWINDOW,
         CW_USEDEFAULT, CW_USEDEFAULT, S(1000), S(760),
         NULL, NULL, hInst, NULL);
