@@ -3,6 +3,7 @@
 *.o
 *.obj
 *.a
+*.res
 *.lib
 *.dll
 build/

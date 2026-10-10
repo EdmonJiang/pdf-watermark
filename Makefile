@@ -8,13 +8,13 @@
 #   make            构建 pdfwatermark.exe
 #   make clean      清理
 
-CC      ?= gcc
+CC       ?= gcc
+WINDRES  ?= windres
 MUPDF_DIR ?= ../sumatrapdf/ext/mupdf
 NOTO_C    ?= ../sumatrapdf/src/shared/mupdf/noto_sumatra.c
 MUPDF_LIB ?= ../mupdf_build/libmupdf.a
 
 SRC = src/pdfwatermark.c src/pdf.c src/ccitt.c src/mupdf_render.c src/mupdf_wm.c
-OBJ = $(SRC:.c=.o)
 
 CFLAGS  = -O2 -mwindows -municode -Wall -I. -Isrc \
           -I$(MUPDF_DIR)/include -I$(MUPDF_DIR)/../src/shared/mupdf
@@ -27,10 +27,13 @@ TARGET = pdfwatermark.exe
 
 all: $(TARGET)
 
-$(TARGET): $(SRC) $(MUPDF_LIB)
-	$(CC) $(CFLAGS) -o $@ $(SRC) $(NOTO_C) $(LIBS) $(LDFLAGS)
+app.res: app.rc watermark.ico
+	$(WINDRES) -I. -O coff -o $@ app.rc
+
+$(TARGET): $(SRC) app.res $(MUPDF_LIB)
+	$(CC) $(CFLAGS) -o $@ $(SRC) app.res $(NOTO_C) $(LIBS) $(LDFLAGS)
 
 clean:
-	rm -f $(TARGET) $(OBJ)
+	rm -f $(TARGET) app.res
 
 .PHONY: all clean
