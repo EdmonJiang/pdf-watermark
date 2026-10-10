@@ -22,7 +22,7 @@ so the output looks identical in every PDF viewer.
 - **GUI** — live preview, slider controls, colour picker
 - **CLI** — easy to script and batch
 - **Watermark options** — text, size (px), colour, rotation, opacity,
-  grid rows/columns, page margin
+  grid rows/columns
 - **CJK support** — Chinese text is encoded as Identity-H and the **SimHei glyph
   subset is embedded** (~+130 KB per file). No reliance on viewer font
   substitution, so preview and output match exactly.
@@ -130,8 +130,7 @@ pdfwatermark.exe <grid|insert> <text> <input.pdf> [options]
 | `-tc, --text-color <#rrggbb>` | text colour | `#FF0000` |
 | `-ts, --text-size <px>` | font size in pixels (max 200) | `50` |
 | `-h, --horizontal-boxes <n>` | horizontal repeats | `3` |
-| `-v, --vertical-boxes <n>` | vertical repeats | `6` |
-| `-m, --margin` | keep a margin in grid mode | edge-to-edge |
+| `-v, --vertical-boxes <n>` | vertical repeats | `2` |
 | `-x, --x <0..1>` / `-y, --y <0..1>` | position for `insert` mode | `0.5` |
 
 **Examples**
@@ -343,8 +342,7 @@ pdfwatermark.exe <grid|insert> <文字> <输入.pdf> [选项]
 | `-tc, --text-color <#rrggbb>` | 文字颜色 | `#FF0000` |
 | `-ts, --text-size <px>` | 字号 (像素, 最大 200) | `50` |
 | `-h, --horizontal-boxes <n>` | 水平重复数 | `3` |
-| `-v, --vertical-boxes <n>` | 垂直重复数 | `6` |
-| `-m, --margin` | 网格留边距 | 切边 |
+| `-v, --vertical-boxes <n>` | 垂直重复数 | `2` |
 | `-x, --x <0..1>` / `-y, --y <0..1>` | `insert` 模式位置 | `0.5` |
 
 **示例**

@@ -41,7 +41,6 @@
 #define IDC_ST_INFO     1013
 #define IDC_TB_VBOX     1014
 #define IDC_ST_VBOX     1015
-#define IDC_CB_MARGIN   1016
 #define IDC_CB_SINGLE   1017
 
 /* ------------------------------------------------------------------ */
@@ -79,13 +78,12 @@ static double  g_fontSize   = 50;     /* px (96dpi 像素), 内部换算为 pt *
 static COLORREF g_color     = RGB(255, 0, 0);
 static double  g_angle      = 45;     /* -90..90 度 (逆时针) */
 static int     g_hboxes     = 3;
-static int     g_vboxes     = 6;
+static int     g_vboxes     = 2;
 static int     g_opacity    = 20;     /* 0..100 % */
 #define FONT_MIN_PX 6
 #define FONT_DEF_PX 50
 #define FONT_MAX_PX 200
 #define PX2PT(v)    ((v) * 72.0 / 96.0)   /* 像素 -> 点 (96dpi) */
-static int     g_margin     = 0;      /* 网格留边距 */
 static int     g_single     = 0;      /* 仅插入单个水印 */
 static int     g_dpi        = 96;
 #define S(v) MulDiv((v), g_dpi, 96)    /* 逻辑像素 -> 物理像素 */
@@ -104,7 +102,6 @@ static void currentParams(WmParams *p)
     p->mode = g_single ? WM_MODE_SINGLE : WM_MODE_GRID;
     p->hboxes = g_hboxes;
     p->vboxes = g_vboxes;
-    p->margin = g_margin;
     p->ix = 0.5; p->iy = 0.5;
 }
 
@@ -430,7 +427,6 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wp, LPARAM lp)
         MK(TRK, NULL, IDC_TB_OPACITY, S(74), S(92), S(160), S(22), 0);
         MK(CLS, L"10 %", IDC_ST_OPACITY, S(240), S(94), S(50), S(20), 0);
 
-        MK(BTN, L"\x7F51\x683C\x7559\x8FB9\x8DDD", IDC_CB_MARGIN, S(320), S(92), S(120), S(24), BS_AUTOCHECKBOX);
         MK(BTN, L"\x4EC5\x5C45\x4E2D\x4E00\x4E2A", IDC_CB_SINGLE, S(452), S(92), S(120), S(24), BS_AUTOCHECKBOX);
 
         MK(CLS,
@@ -452,8 +448,6 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wp, LPARAM lp)
         case IDC_OPEN: doOpen(); return 0;
         case IDC_SAVE: doSave(); return 0;
         case IDC_COLOR: doChooseColor(); return 0;
-        case IDC_CB_MARGIN:
-            g_margin = (int)SendDlgItemMessageW(hWnd, IDC_CB_MARGIN, BM_GETCHECK, 0, 0);
             invalidatePreview();
             return 0;
         case IDC_CB_SINGLE:
@@ -611,7 +605,7 @@ static int runCli(int argc, wchar_t **argv)
     p.r = GetRValue(g_color) / 255.0;
     p.g = GetGValue(g_color) / 255.0;
     p.b = GetBValue(g_color) / 255.0;
-    p.hboxes = 3; p.vboxes = 6; p.margin = 0;
+    p.hboxes = 3; p.vboxes = 2;
     p.ix = 0.5; p.iy = 0.5;
 
     for (i = 1; i < argc; i++) {
@@ -648,7 +642,6 @@ static int runCli(int argc, wchar_t **argv)
             if (++i < argc) p.vboxes = _wtoi(argv[i]);
             continue;
         }
-        if (!wcscmp(a, L"-m") || !wcscmp(a, L"--margin")) { p.margin = 1; continue; }
         if (!wcscmp(a, L"-x") || !wcscmp(a, L"--x")) {
             if (++i < argc) p.ix = _wtof(argv[i]);
             continue;
@@ -685,8 +678,7 @@ static int runCli(int argc, wchar_t **argv)
             L"  -tc, --text-color <#rrggbb> 文字颜色 (默认 #FF0000)\n"
             L"  -ts, --text-size <px>      字号像素 (默认 50, 最大 200)\n"
             L"  -h, --horizontal-boxes <n> 水平重复数 (默认 3)\n"
-            L"  -v, --vertical-boxes <n>   垂直重复数 (默认 6)\n"
-            L"  -m, --margin               网格留边距 (默认切边)\n"
+            L"  -v, --vertical-boxes <n>   垂直重复数 (默认 2)\n"
             L"  -x, --x <0..1> / -y, --y <0..1>  insert 模式位置\n");
         return 2;
     }

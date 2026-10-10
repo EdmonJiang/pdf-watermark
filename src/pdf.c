@@ -1665,15 +1665,11 @@ static int makeGsObj(PdfDoc *d, double opacity)
     return num;
 }
 
-/* 计算水印位置 (页面坐标 pt, 原点左下); GUI 预览与写 PDF 共用同一套公式 */
 /*
- * 计算水印位置 (页面坐标 pt, 原点左下).
+ * 计算水印位置 (页面坐标 pt, 原点左下); GUI 预览与写 PDF 共用同一套公式.
  *
- * 布局策略 (保证水印不超出页面边界):
- *   - 单元格中心放置, 因此首/末水印离页边至少有半个单元格;
- *   - margin=1 时再向内收缩 (单元格中心 + 半格内缩), 即参考实现里
- *     "留边距" 的语义;
- *   - 无论哪种模式, 标记点都落在 [0,pw] x [0,ph] 内.
+ * 网格模式把水印放在每个单元格的中心, 因此最外圈离页边至少有半格,
+ * 不会切边; 标记点始终落在 [0,pw] x [0,ph] 内.
  */
 int pdfWatermarkMarks(const WmParams *p, double pw, double ph,
                       double *x, double *y, int max)
@@ -1693,12 +1689,13 @@ int pdfWatermarkMarks(const WmParams *p, double pw, double ph,
         int vb = p->vboxes > 0 ? p->vboxes : 1;
         double cellW = pw / hb, cellH = ph / vb;
         int ix, iy;
+        /* 水印放在每个单元格的中心, 因此最外圈离页边半格, 不会切边 */
         for (iy = 0; iy < vb; iy++) {
             for (ix = 0; ix < hb; ix++) {
-                double cx = (ix + 0.5) * cellW;
-                double cy = (iy + 0.5) * cellH;
                 if (n >= max) return n;
-                x[n] = cx; y[n] = cy; n++;
+                x[n] = (ix + 0.5) * cellW;
+                y[n] = (iy + 0.5) * cellH;
+                n++;
             }
         }
     }

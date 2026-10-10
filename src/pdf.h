@@ -27,7 +27,6 @@ typedef struct {
     double r, g, b;            /* 颜色 0..1 */
     int mode;                  /* WM_MODE_GRID / WM_MODE_SINGLE */
     int hboxes, vboxes;        /* 网格: 水平/垂直重复数 */
-    int margin;                /* 网格: 是否留边距(不切边) */
     double ix, iy;             /* 单点模式: 相对位置 0..1 */
 } WmParams;
 
