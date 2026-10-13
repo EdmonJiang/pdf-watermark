@@ -37,6 +37,9 @@ void    pdfFree(PdfDoc *d);
 int     pdfPageCount(PdfDoc *d);
 void    pdfGetPage(PdfDoc *d, int idx, double *w, double *h);
 
+/* 旋转所有页面 (顺时针 delta 度, 0/90/180/270); 幂等, 传 0 恢复原方向 */
+void    pdfRotateAll(PdfDoc *d, int delta);
+
 /* 给所有页面追加水印(修改内部对象), 返回 0 成功。
  * 重复调用不会叠加: 本工具写入的旧水印内容流会被自动剥离。 */
 int     pdfApplyWatermark(PdfDoc *d, const WmParams *p, wchar_t *err, size_t errMax);

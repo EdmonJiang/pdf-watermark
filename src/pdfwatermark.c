@@ -23,8 +23,8 @@
 #include "pdf.h"
 #include "mupdf_render.h"
 
-#define PW_VERSION L"1.0.2"
-#define PW_BUILD_DATE L"2026-10-12"
+#define PW_VERSION L"1.1.0"
+#define PW_BUILD_DATE L"2026-10-13"
 
 /* ------------------------------------------------------------------ */
 /* 控件 ID                                                             */
@@ -45,6 +45,8 @@
 #define IDC_TB_VBOX     1014
 #define IDC_ST_VBOX     1015
 #define IDC_CB_SINGLE   1017
+#define IDC_BTN_ROTATE  1018
+#define IDC_ST_ROTATE   1019
 
 /* ------------------------------------------------------------------ */
 /* 全局状态                                                            */
@@ -60,11 +62,80 @@ static wchar_t g_srcPath[MAX_PATH] = L"";
 static HBITMAP g_pageBmp = NULL;
 static int     g_pageBmpW = 0, g_pageBmpH = 0;
 
+/* 用户旋转增量 (顺时针 0/90/180/270) 与旋转后的预览底图 */
+static int     g_rotate = 0;
+static HBITMAP g_viewBmp = NULL;   /* 旋转后的页面底图 (g_viewOwned 时才需释放) */
+static int     g_viewBmpW = 0, g_viewBmpH = 0;
+static int     g_viewOwned = 0;
+
 static void releasePageBmp(void)
 {
+    if (g_viewOwned && g_viewBmp) DeleteObject(g_viewBmp);
+    g_viewBmp = NULL; g_viewBmpW = g_viewBmpH = 0; g_viewOwned = 0;
     if (g_pageBmp) { DeleteObject(g_pageBmp); g_pageBmp = NULL; }
     g_pageBmpW = g_pageBmpH = 0;
 }
+
+/* 把 32bpp top-down DIB 顺时针旋转 turns*90°, 返回新 DIB (turns=0 返回 NULL) */
+static HBITMAP rotateBmp90(HBITMAP src, int sw, int sh, int turns,
+                           int *ow, int *oh)
+{
+    DIBSECTION ds;
+    BITMAPINFO bi;
+    void *bits = NULL;
+    HBITMAP dst;
+    uint32_t *s, *d;
+    int nw, nh, x, y;
+
+    if (turns == 0) { *ow = sw; *oh = sh; return NULL; }
+    if (!GetObject(src, sizeof(ds), &ds) || !ds.dsBm.bmBits ||
+        ds.dsBm.bmBitsPixel != 32)
+        return NULL;
+    nw = (turns == 1 || turns == 3) ? sh : sw;
+    nh = (turns == 1 || turns == 3) ? sw : sh;
+    memset(&bi, 0, sizeof(bi));
+    bi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+    bi.bmiHeader.biWidth = nw;
+    bi.bmiHeader.biHeight = -nh;
+    bi.bmiHeader.biPlanes = 1;
+    bi.bmiHeader.biBitCount = 32;
+    bi.bmiHeader.biCompression = BI_RGB;
+    dst = CreateDIBSection(NULL, &bi, DIB_RGB_COLORS, &bits, NULL, 0);
+    if (!dst || !bits) { if (dst) DeleteObject(dst); return NULL; }
+    s = (uint32_t *)ds.dsBm.bmBits;
+    d = (uint32_t *)bits;
+    for (y = 0; y < sh; y++) {
+        for (x = 0; x < sw; x++) {
+            uint32_t p = s[(size_t)y * sw + x];
+            int nx, ny;
+            if (turns == 1)      { nx = sh - 1 - y; ny = x; }
+            else if (turns == 2) { nx = sw - 1 - x; ny = sh - 1 - y; }
+            else                 { nx = y; ny = sw - 1 - x; }
+            d[(size_t)ny * nw + nx] = p;
+        }
+    }
+    *ow = nw; *oh = nh;
+    return dst;
+}
+
+/* 依据 g_rotate 生成预览底图 (g_rotate==0 时直接借用原图) */
+static void rebuildView(void)
+{
+    if (g_viewOwned && g_viewBmp) { DeleteObject(g_viewBmp); g_viewOwned = 0; }
+    g_viewBmp = NULL; g_viewBmpW = g_viewBmpH = 0;
+    if (!g_pageBmp) return;
+    if (g_rotate == 0) {
+        g_viewBmp = g_pageBmp;
+        g_viewBmpW = g_pageBmpW;
+        g_viewBmpH = g_pageBmpH;
+    } else {
+        int w = 0, h = 0;
+        HBITMAP r = rotateBmp90(g_pageBmp, g_pageBmpW, g_pageBmpH,
+                                (g_rotate / 90) % 4, &w, &h);
+        if (r) { g_viewBmp = r; g_viewBmpW = w; g_viewBmpH = h; g_viewOwned = 1; }
+    }
+}
+
 static void loadPageBmp(void)
 {
     releasePageBmp();
@@ -73,6 +144,14 @@ static void loadPageBmp(void)
     if (pwMuRenderPage(g_srcPath, 0, &g_pageBmp, &g_pageBmpW, &g_pageBmpH,
                        1400, NULL, 0) != 0)
         g_pageBmp = NULL;
+    rebuildView();
+}
+
+/* 当前显示尺寸 (pt): 原始显示尺寸叠加 g_rotate (90/270 时宽高互换) */
+static void effPageSize(double *w, double *h)
+{
+    if (g_rotate == 90 || g_rotate == 270) { *w = g_ph; *h = g_pw; }
+    else { *w = g_pw; *h = g_ph; }
 }
 
 /* 水印参数 (默认值与 python 版 pdf-watermark 一致) */
@@ -205,6 +284,7 @@ static void doSave(void)
     if (!GetSaveFileNameW(&sf)) return;
 
     currentParams(&p);
+    pdfRotateAll(g_doc, g_rotate);          /* 先按当前旋转设置每页 /Rotate */
     if (pdfApplyWatermark(g_doc, &p, err, 128) != 0) {
         MessageBoxW(g_hWnd, err[0] ? err : L"生成水印失败。",
                     L"错误", MB_OK | MB_ICONERROR);
@@ -260,15 +340,16 @@ static void calcPreview(int *dx, int *dy, int *dw, int *dh)
 {
     RECT area;
     int areaW, areaH;
-    double scale;
+    double scale, ew, eh;
     calcPreviewArea(&area);
     areaW = area.right - area.left;
     areaH = area.bottom - area.top;
     *dw = 0; *dh = 0;
-    if (g_pw > 0 && g_ph > 0 && areaW > 0 && areaH > 0) {
-        scale = (double)areaW / g_pw;
-        if ((double)areaH / g_ph < scale) scale = (double)areaH / g_ph;
-        *dw = (int)(g_pw * scale); *dh = (int)(g_ph * scale);
+    effPageSize(&ew, &eh);
+    if (ew > 0 && eh > 0 && areaW > 0 && areaH > 0) {
+        scale = (double)areaW / ew;
+        if ((double)areaH / eh < scale) scale = (double)areaH / eh;
+        *dw = (int)(ew * scale); *dh = (int)(eh * scale);
         if (*dw < 1) *dw = 1;
         if (*dh < 1) *dh = 1;
         *dx = area.left + (areaW - *dw) / 2;
@@ -291,15 +372,11 @@ static void invalidatePreview(void)
 /* 在预览画布上绘制水印文字 (与写入 PDF 的布局公式一致) */
 static void drawPreviewWatermark(HDC dc, int px, int py, int pw, int ph)
 {
-    double scale = (g_pw > 0) ? (double)pw / g_pw : 1.0;
+    double ew, eh, scale;
     double ang = g_angle * (M_PI / 180.0);
     double cs = cos(ang), sn = sin(ang);
-    double op = g_opacity / 100.0;
-    int R = GetRValue(g_color), G = GetGValue(g_color), B = GetBValue(g_color);
-    COLORREF blended = RGB(
-        (int)(255 + (R - 255) * op),
-        (int)(255 + (G - 255) * op),
-        (int)(255 + (B - 255) * op));
+    effPageSize(&ew, &eh);
+    scale = (ew > 0) ? (double)pw / ew : 1.0;
     /* 与写入 PDF 保持一致的字体大小: g_fontSize(px) -> pt -> 预览像素 */
     int fontPx = (int)(PX2PT(g_fontSize) * scale + 0.5);
     HFONT font, oldFont;
@@ -324,14 +401,14 @@ static void drawPreviewWatermark(HDC dc, int px, int py, int pw, int ph)
         /* 统一用黑体: SimHei 同时包含拉丁字母与汉字字形 */
         font = CreateFontW(-fontPx, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
                            DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
-                           CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_DONTCARE,
+                           ANTIALIASED_QUALITY, DEFAULT_PITCH | FF_DONTCARE,
                            L"SimHei");
     }
     oldFont = (HFONT)SelectObject(dc, font);
 
     SetGraphicsMode(dc, GM_ADVANCED);
     SetBkMode(dc, TRANSPARENT);
-    SetTextColor(dc, blended);
+    SetTextColor(dc, RGB(255, 255, 255));   /* 只画白色遮罩, 颜色/透明度在合成时施加 */
     SetTextAlign(dc, TA_CENTER | TA_BASELINE);
 
     /* 屏幕 y 向下; PDF 逆时针 -> 屏幕顺时针, 取 -sin (与 PDF 视觉一致) */
@@ -342,11 +419,11 @@ static void drawPreviewWatermark(HDC dc, int px, int py, int pw, int ph)
 
     /* 与写入 PDF 使用完全相同的布局公式 */
     currentParams(&pp);
-    nm = pdfWatermarkMarks(&pp, g_pw, g_ph, mx, my, 256);
+    nm = pdfWatermarkMarks(&pp, ew, eh, mx, my, 256);
     for (k2 = 0; k2 < nm; k2++) {
         /* 页面坐标(原点左下) -> 屏幕坐标(原点左上) */
         xf.eDx = (FLOAT)(px + mx[k2] * scale);
-        xf.eDy = (FLOAT)(py + (g_ph - my[k2]) * scale);
+        xf.eDy = (FLOAT)(py + (eh - my[k2]) * scale);
         SetWorldTransform(dc, &xf);
         TextOutW(dc, 0, 0, g_text, (int)wcslen(g_text));
     }
@@ -383,6 +460,8 @@ static void updateLabels(HWND hWnd)
     SetDlgItemTextW(hWnd, IDC_ST_VBOX, buf);
     wsprintfW(buf, L"%d %%", g_opacity);
     SetDlgItemTextW(hWnd, IDC_ST_OPACITY, buf);
+    wsprintfW(buf, L"旋转: %d\xB0", g_rotate);
+    SetDlgItemTextW(hWnd, IDC_ST_ROTATE, buf);
 }
 
 static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wp, LPARAM lp)
@@ -431,6 +510,8 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wp, LPARAM lp)
         MK(CLS, L"10 %", IDC_ST_OPACITY, S(240), S(94), S(50), S(20), 0);
 
         MK(BTN, L"\x4EC5\x5C45\x4E2D\x4E00\x4E2A", IDC_CB_SINGLE, S(452), S(92), S(120), S(24), BS_AUTOCHECKBOX);
+        MK(BTN, L"旋转 90°", IDC_BTN_ROTATE, S(584), S(92), S(104), S(24), BS_PUSHBUTTON);
+        MK(CLS, L"旋转: 0°", IDC_ST_ROTATE, S(700), S(94), S(120), S(20), 0);
 
         MK(CLS,
            L"\x6253\x5F00 PDF \x540E\x53EF\x5B9E\x65F6\x9884\x89C8\x6C34\x5370\x5E03\x5C40; "
@@ -456,6 +537,12 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wp, LPARAM lp)
         case IDC_CB_SINGLE:
             g_single = (int)SendDlgItemMessageW(hWnd, IDC_CB_SINGLE, BM_GETCHECK, 0, 0);
             invalidatePreview();
+            return 0;
+        case IDC_BTN_ROTATE:
+            g_rotate = (g_rotate + 90) % 360;
+            updateLabels(hWnd);
+            rebuildView();
+            InvalidateRect(hWnd, NULL, TRUE);
             return 0;
         case IDC_TEXT:
             if (HIWORD(wp) == EN_CHANGE)
@@ -510,8 +597,20 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wp, LPARAM lp)
         int aw = area.right - area.left, ah = area.bottom - area.top;
         if (aw > 0 && ah > 0) {
             HDC mem = CreateCompatibleDC(dc);
-            HBITMAP bm = CreateCompatibleBitmap(dc, aw, ah);
-            HBITMAP oldBm = (HBITMAP)SelectObject(mem, bm);
+            BITMAPINFO dib;
+            void *surfBits = NULL;
+            HBITMAP bm, oldBm;
+
+            memset(&dib, 0, sizeof(dib));
+            dib.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+            dib.bmiHeader.biWidth = aw;
+            dib.bmiHeader.biHeight = -ah;          /* top-down */
+            dib.bmiHeader.biPlanes = 1;
+            dib.bmiHeader.biBitCount = 32;
+            dib.bmiHeader.biCompression = BI_RGB;
+            bm = CreateDIBSection(dc, &dib, DIB_RGB_COLORS, &surfBits, NULL, 0);
+            if (!bm) { DeleteDC(mem); EndPaint(hWnd, &ps); return 0; }
+            oldBm = (HBITMAP)SelectObject(mem, bm);
 
             HBRUSH bg = CreateSolidBrush(RGB(240, 240, 240));
             RECT marea = { 0, 0, aw, ah };
@@ -536,17 +635,55 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wp, LPARAM lp)
                     DeleteObject(pen);
                     DeleteObject(wb);
                 }
-                /* 页面原内容 */
-                if (g_pageBmp && dw > 0 && dh > 0) {
+                /* 页面原内容 (已按 g_rotate 旋转的底图) */
+                if (g_viewBmp && dw > 0 && dh > 0) {
                     HDC bdc = CreateCompatibleDC(mem);
-                    HBITMAP obm = (HBITMAP)SelectObject(bdc, g_pageBmp);
+                    HBITMAP obm = (HBITMAP)SelectObject(bdc, g_viewBmp);
                     SetStretchBltMode(mem, COLORONCOLOR);
                     StretchBlt(mem, dx - area.left, dy - area.top, dw, dh,
-                               bdc, 0, 0, g_pageBmpW, g_pageBmpH, SRCCOPY);
+                               bdc, 0, 0, g_viewBmpW, g_viewBmpH, SRCCOPY);
                     SelectObject(bdc, obm);
                     DeleteDC(bdc);
                 }
-                drawPreviewWatermark(mem, dx - area.left, dy - area.top, dw, dh);
+                /*
+                 * 水印: 先画到白色遮罩, 再按 颜色 + 透明度 合成到预览面.
+                 * 这样预览与保存后的 PDF 一样是真正半透明的, 能看到下面的内容,
+                 * 而不是把颜色调淡后不透明地盖住。
+                 */
+                {
+                    void *maskBits = NULL;
+                    HBITMAP maskBm = CreateDIBSection(dc, &dib, DIB_RGB_COLORS,
+                                                      &maskBits, NULL, 0);
+                    if (maskBm && maskBits) {
+                        HDC mdc = CreateCompatibleDC(dc);
+                        HBITMAP omb = (HBITMAP)SelectObject(mdc, maskBm);
+                        HBRUSH black = CreateSolidBrush(RGB(0, 0, 0));
+                        RECT mr = { 0, 0, aw, ah };
+                        FillRect(mdc, &mr, black);
+                        DeleteObject(black);
+                        drawPreviewWatermark(mdc, dx - area.left, dy - area.top, dw, dh);
+                        {
+                            unsigned char *sp = (unsigned char *)surfBits;
+                            unsigned char *mp = (unsigned char *)maskBits;
+                            int cr = GetRValue(g_color), cg = GetGValue(g_color), cb = GetBValue(g_color);
+                            int alpha255 = g_opacity * 255 / 100;
+                            long i, n = (long)aw * ah;
+                            for (i = 0; i < n; i++) {
+                                int cov = mp[i * 4 + 2];        /* 遮罩 R 通道 = 覆盖率 */
+                                int a;
+                                if (!cov) continue;
+                                a = cov * alpha255 / 255;
+                                if (a <= 0) continue;
+                                sp[i*4+2] = (unsigned char)(sp[i*4+2] + (cr - sp[i*4+2]) * a / 255);
+                                sp[i*4+1] = (unsigned char)(sp[i*4+1] + (cg - sp[i*4+1]) * a / 255);
+                                sp[i*4+0] = (unsigned char)(sp[i*4+0] + (cb - sp[i*4+0]) * a / 255);
+                            }
+                        }
+                        SelectObject(mdc, omb);
+                        DeleteObject(maskBm);
+                        DeleteDC(mdc);
+                    }
+                }
             } else {
                 HFONT pf = CreateFontW(S(-14), 0, 0, 0, FW_NORMAL, 0, 0, 0,
                                        DEFAULT_CHARSET, 0, 0, CLEARTYPE_QUALITY,
@@ -599,6 +736,7 @@ static int runCli(int argc, wchar_t **argv)
     wchar_t *mode = L"grid";
     wchar_t *text = NULL, *infile = NULL, *outfile = NULL;
     int i, rc;
+    int rotate = 0;                 /* 顺时针旋转角度 (0/90/180/270) */
     wchar_t err[160] = L"";
     PdfDoc *d;
     HANDLE fh;
@@ -670,6 +808,10 @@ static int runCli(int argc, wchar_t **argv)
             if (++i < argc) text = argv[i];
             continue;
         }
+        if (!wcscmp(a, L"-r") || !wcscmp(a, L"--rotate")) {
+            if (++i < argc) rotate = _wtoi(argv[i]);
+            continue;
+        }
         if (!wcscmp(a, L"-h") && !text) { /* help */ }
         /* 位置参数: 先文本后输入文件; .pdf 结尾视为输入文件 */
         if (wcsstr(a, L".pdf") || wcsstr(a, L".PDF")) {
@@ -692,6 +834,7 @@ static int runCli(int argc, wchar_t **argv)
             L"  -h, --horizontal-boxes <n> 水平重复数 (默认 3)\n"
             L"  -v, --vertical-boxes <n>   垂直重复数 (默认 2)\n"
             L"  -x, --x <0..1> / -y, --y <0..1>  insert 模式位置\n"
+            L"  -r, --rotate <0|90|180|270>  顺时针旋转页面并保存\n"
             L"  -V, --version              显示版本\n");
         return 2;
     }
@@ -731,6 +874,7 @@ static int runCli(int argc, wchar_t **argv)
         return 1;
     }
     p.text = text;
+    pdfRotateAll(d, rotate);
     rc = pdfApplyWatermark(d, &p, err, 160);
     if (rc == 0) rc = pdfWrite(d, outfile, err, 160);
     pdfFree(d);

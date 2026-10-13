@@ -409,6 +409,7 @@ struct PdfDoc {
     int *pages; int npages;
     double *pw, *ph;
     int *prot;              /* 每页 /Rotate (0/90/180/270) */
+    int rotApplied;         /* 已应用的旋转增量 (供 pdfRotateAll 幂等使用) */
     int encrypted;
 };
 
@@ -1354,6 +1355,30 @@ void pdfGetPage(PdfDoc *d, int idx, double *w, double *h)
         *w = d->ph[idx]; *h = d->pw[idx];
     } else {
         *w = d->pw[idx]; *h = d->ph[idx];
+    }
+}
+
+/*
+ * 旋转所有页面: delta 为相对原始文件的累计旋转角 (顺时针, 0/90/180/270)。
+ * 幂等: 内部记住上次应用的角度, 再次调用只应用差值; 传 0 恢复原方向。
+ * 通过修改每页 /Rotate 实现, 原内容不动, 保存后按旋转后的方向显示。
+ */
+void pdfRotateAll(PdfDoc *d, int delta)
+{
+    int diff, i;
+    if (!d) return;
+    delta = ((delta % 360) + 360) % 360;
+    diff = ((delta - d->rotApplied) % 360 + 360) % 360;
+    d->rotApplied = delta;
+    if (diff == 0) return;
+    for (i = 0; i < d->npages; i++) {
+        int r = ((d->prot[i] + diff) % 360 + 360) % 360;
+        Obj *po;
+        d->prot[i] = r;
+        po = objEnsure(d, d->pages[i], 0);
+        if (!po || !po->val || po->val->type != PV_DICT) continue;
+        if (!po->modVal) po->modVal = vCopy(po->val);
+        dictSet(po->modVal, "Rotate", ({ Value *x = vNew(PV_INT); x->u.i = r; x; }));
     }
 }
 

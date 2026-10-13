@@ -134,6 +134,7 @@ pdfwatermark.exe <grid|insert> <text> <input.pdf> [options]
 | `-h, --horizontal-boxes <n>` | horizontal repeats | `3` |
 | `-v, --vertical-boxes <n>` | vertical repeats | `2` |
 | `-x, --x <0..1>` / `-y, --y <0..1>` | position for `insert` mode | `0.5` |
+| `-r, --rotate <0|90|180|270>` | rotate every page clockwise before saving | `0` |
 
 **Examples**
 
@@ -346,6 +347,7 @@ pdfwatermark.exe <grid|insert> <文字> <输入.pdf> [选项]
 | `-h, --horizontal-boxes <n>` | 水平重复数 | `3` |
 | `-v, --vertical-boxes <n>` | 垂直重复数 | `2` |
 | `-x, --x <0..1>` / `-y, --y <0..1>` | `insert` 模式位置 | `0.5` |
+| `-r, --rotate <0|90|180|270>` | 按顺时针旋转页面后保存 | `0` |
 
 **示例**
 
