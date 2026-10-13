@@ -10,6 +10,8 @@ so the output looks identical in every PDF viewer.
 > A C / Windows rewrite of [bastienlc/pdf-watermark](https://github.com/bastienlc/pdf-watermark)
 > (the Python original), aimed at users who want a native GUI and no Python runtime.
 
+![PDF Watermark GUI 界面截图](ScreenShot.png)
+
 ---
 
 ## English
