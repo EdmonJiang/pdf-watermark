@@ -124,7 +124,7 @@ pdfwatermark.exe <grid|insert> <text> <input.pdf> [options]
 
 | Option | Description | Default |
 |---|---|---|
-| `-s, --save <file>` | output file | `<name>_watermark.pdf` |
+| `-s, --save <file>` | output file | `<name>_水印.pdf` |
 | `-o, --opacity <0..1>` | opacity | `0.2` |
 | `-a, --angle <deg>` | rotation (counter-clockwise) | `45` |
 | `-tc, --text-color <#rrggbb>` | text colour | `#FF0000` |
@@ -336,7 +336,7 @@ pdfwatermark.exe <grid|insert> <文字> <输入.pdf> [选项]
 
 | 选项 | 说明 | 默认 |
 |---|---|---|
-| `-s, --save <文件>` | 输出文件 | `<原名>_watermark.pdf` |
+| `-s, --save <文件>` | 输出文件 | `<原名>_水印.pdf` |
 | `-o, --opacity <0..1>` | 透明度 | `0.2` |
 | `-a, --angle <度>` | 倾斜角度 (逆时针) | `45` |
 | `-tc, --text-color <#rrggbb>` | 文字颜色 | `#FF0000` |

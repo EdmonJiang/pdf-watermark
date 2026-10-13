@@ -23,7 +23,7 @@
 #include "pdf.h"
 #include "mupdf_render.h"
 
-#define PW_VERSION L"1.0.0"
+#define PW_VERSION L"1.0.1"
 
 /* ------------------------------------------------------------------ */
 /* 控件 ID                                                             */
@@ -75,7 +75,7 @@ static void loadPageBmp(void)
 }
 
 /* 水印参数 (默认值与 python 版 pdf-watermark 一致) */
-static wchar_t g_text[256]  = L"机密文件";
+static wchar_t g_text[256]  = L"仅用于";
 static double  g_fontSize   = 50;     /* px (96dpi 像素), 内部换算为 pt */
 static COLORREF g_color     = RGB(255, 0, 0);
 static double  g_angle      = 45;     /* -90..90 度 (逆时针) */
@@ -191,7 +191,7 @@ static void doSave(void)
     wcscpy(base, g_srcPath);
     e = wcsrchr(base, L'.');
     if (e) *e = 0;
-    wsprintfW(file, L"%s_watermark.pdf", base);
+    wsprintfW(file, L"%s_水印.pdf", base);
 
     memset(&sf, 0, sizeof(sf));
     sf.lStructSize = sizeof(sf);
@@ -547,12 +547,17 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wp, LPARAM lp)
                 }
                 drawPreviewWatermark(mem, dx - area.left, dy - area.top, dw, dh);
             } else {
+                HFONT pf = CreateFontW(S(-14), 0, 0, 0, FW_NORMAL, 0, 0, 0,
+                                       DEFAULT_CHARSET, 0, 0, CLEARTYPE_QUALITY,
+                                       0, L"Microsoft YaHei");
+                HFONT oldPf = (HFONT)SelectObject(mem, pf);
                 SetTextColor(mem, RGB(120, 120, 120));
                 SetBkMode(mem, TRANSPARENT);
                 RECT tr = { 0, ah / 2 - 20, aw, ah / 2 + 20 };
-                DrawTextW(mem,
-                    L"\x70B9\x51FB [\x6253\x5F00 PDF] \x9009\x62E9\x4E00\x4E2A PDF \x6587\x4EF6",
-                    -1, &tr, DT_CENTER | DT_SINGLELINE);
+                DrawTextW(mem, L"点击【打开PDF】选择一张PDF",
+                          -1, &tr, DT_CENTER | DT_SINGLELINE);
+                SelectObject(mem, oldPf);
+                DeleteObject(pf);
        
             }
 
@@ -678,7 +683,7 @@ static int runCli(int argc, wchar_t **argv)
     if (!infile || !text) {
         cliPrint(
             L"用法: pdfwatermark <grid|insert> <水印文字> <输入.pdf> [选项]\n"
-            L"  -s, --save <文件>          输出文件 (默认 原名_watermark.pdf)\n"
+            L"  -s, --save <文件>          输出文件 (默认 原名_水印.pdf)\n"
             L"  -o, --opacity <0..1>       透明度 (默认 0.2)\n"
             L"  -a, --angle <度>           倾斜角度 (默认 45)\n"
             L"  -tc, --text-color <#rrggbb> 文字颜色 (默认 #FF0000)\n"
@@ -695,7 +700,7 @@ static int runCli(int argc, wchar_t **argv)
         wcscpy(defOut, infile);
         e = wcsrchr(defOut, L'.');
         if (e && _wcsicmp(e, L".pdf") == 0) *e = 0;
-        wcscat(defOut, L"_watermark.pdf");
+        wcscat(defOut, L"_水印.pdf");
         outfile = defOut;
     }
     if (!wcscmp(mode, L"insert")) p.mode = WM_MODE_SINGLE;

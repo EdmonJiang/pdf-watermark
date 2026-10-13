@@ -1,0 +1,35 @@
+# 更新日志 · Changelog
+
+本项目遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
+This project adheres to [Semantic Versioning](https://semver.org/).
+
+---
+
+## [1.0.1] — 2026-10-12
+
+### ✨ 改动 · Changed
+
+- 默认水印文字由「机密文件」改为「仅用于」
+- 预览框提示语字体放大到与按钮一致，文案改为「点击【打开PDF】选择一张PDF」
+- **统一保存默认文件名后缀**：默认输出文件名由 `原名_watermark.pdf` 改为
+  `原名_水印.pdf`（GUI 保存对话框、命令行默认输出与 `-s` 帮助文本同步修改）
+
+---
+
+## [1.0.0] — 2026-10-10
+
+首个正式版本 / First stable release.
+
+- GUI + CLI 双模式（`grid` / `insert`）
+- 自研迷你 PDF 解析 / 重写引擎：经典 xref、xref stream + Flate + PNG predictor、
+  ObjStm、页面树遍历、增量式全量重写
+- MuPDF 渲染页面作为预览底图；水印字体以 **Identity-H 黑体子集**嵌入
+- 幂等写入水印内容流，保留原始页面内容
+- 支持页面旋转 `/Rotate`
+
+---
+
+## 版本说明 · Version Notes
+
+- **[1.0.1]** — 2026-10-12 · 调整默认文字、提示语字体与保存文件名后缀
+- **[1.0.0]** — 2026-10-10 · 首个版本
