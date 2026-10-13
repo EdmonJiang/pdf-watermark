@@ -5,6 +5,14 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.0.2] — 2026-10-12
+
+### ✨ 改动 · Changed
+
+- 窗口标题与 `-V/--version` 输出加上构建日期：`PDF 水印工具 v1.0.2 2026-10-12`
+
+---
+
 ## [1.0.1] — 2026-10-12
 
 ### ✨ 改动 · Changed
@@ -31,5 +39,6 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 ## 版本说明 · Version Notes
 
+- **[1.0.2]** — 2026-10-12 · 窗口标题与 CLI 版本输出显示日期
 - **[1.0.1]** — 2026-10-12 · 调整默认文字、提示语字体与保存文件名后缀
 - **[1.0.0]** — 2026-10-10 · 首个版本

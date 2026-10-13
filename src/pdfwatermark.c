@@ -23,7 +23,8 @@
 #include "pdf.h"
 #include "mupdf_render.h"
 
-#define PW_VERSION L"1.0.1"
+#define PW_VERSION L"1.0.2"
+#define PW_BUILD_DATE L"2026-10-12"
 
 /* ------------------------------------------------------------------ */
 /* 控件 ID                                                             */
@@ -619,7 +620,7 @@ static int runCli(int argc, wchar_t **argv)
         wchar_t *a = argv[i];
         if (!wcscmp(a, L"grid") || !wcscmp(a, L"insert")) { mode = a; continue; }
         if (!wcscmp(a, L"-V") || !wcscmp(a, L"--version")) {
-            cliPrint(L"pdfwatermark " PW_VERSION L"\n");
+            cliPrint(L"pdfwatermark " PW_VERSION L" " PW_BUILD_DATE L"\n");
             return 0;
         }
         if (!wcscmp(a, L"-o") || !wcscmp(a, L"--opacity")) {
@@ -823,7 +824,7 @@ int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE hPrev,
     RegisterClassExW(&wc);
 
     g_hWnd = CreateWindowW(L"PdfWatermarkApp",
-        L"PDF \x6C34\x5370\x5DE5\x5177 v" PW_VERSION,
+        L"PDF \x6C34\x5370\x5DE5\x5177 v" PW_VERSION L" " PW_BUILD_DATE,
         WS_OVERLAPPEDWINDOW,
         CW_USEDEFAULT, CW_USEDEFAULT, S(1000), S(760),
         NULL, NULL, hInst, NULL);

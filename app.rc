@@ -5,8 +5,8 @@
 1 ICON "watermark.ico"
 
 VS_VERSION_INFO VERSIONINFO
-FILEVERSION     1,0,1,0
-PRODUCTVERSION  1,0,1,0
+FILEVERSION     1,0,2,0
+PRODUCTVERSION  1,0,2,0
 FILEFLAGSMASK   VS_FFI_FILEFLAGSMASK
 FILEFLAGS       0
 FILEOS          VOS_NT_WINDOWS32
@@ -19,12 +19,12 @@ BEGIN
         BEGIN
             VALUE "CompanyName",      "EdmonJiang"
             VALUE "FileDescription",  "PDF Watermark"
-            VALUE "FileVersion",      "1.0.1.0"
+            VALUE "FileVersion",      "1.0.2.0"
             VALUE "InternalName",     "pdfwatermark"
             VALUE "LegalCopyright",   "MIT (links MuPDF, AGPL-3.0)"
             VALUE "OriginalFilename", "pdfwatermark.exe"
             VALUE "ProductName",      "PDF Watermark"
-            VALUE "ProductVersion",   "1.0.1.0"
+            VALUE "ProductVersion",   "1.0.2.0"
         END
     END
     BLOCK "VarFileInfo"
